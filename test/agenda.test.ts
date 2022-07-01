@@ -25,6 +25,7 @@ describe("Agenda", function () {
   };
   beforeEach(async function () {
     const Agenda = await ethers.getContractFactory("Agenda");
+
     [owner, addr1, addr2] = await ethers.getSigners();
     agenda = await Agenda.deploy();
     await agenda.deployed();
@@ -42,11 +43,6 @@ describe("Agenda", function () {
       )
         .to.emit(agenda, "AppointmentCreated")
         .withArgs(1, owner.address, today, tomorrow);
-
-      const appointments = await agenda.appointments(owner.address);
-      expect(appointments[0].owner).to.equal(owner.address);
-      expect(appointments[0].from).to.equal(today);
-      expect(appointments[0].to).to.equal(tomorrow);
     });
     it("Should fails on schedule from date is bigger than to", async function () {
       const date = new Date();
@@ -55,41 +51,6 @@ describe("Agenda", function () {
       await expect(
         agenda.schedule(tomorrow.getTime(), date.getTime(), [], false)
       ).to.be.revertedWith("Date From must be bigger than To'");
-    });
-  });
-  describe("Invite", function () {
-    it("Should invite more people into existing appointment", async function () {
-      const appointment = await createAppointment();
-      const appointmentId = appointment.events![0].args!._id;
-
-      await expect(agenda.invite(appointmentId, [addr1.address]))
-        .to.emit(agenda, "MemberInvited")
-        .withArgs(appointmentId.toString(), 1, addr1.address);
-    });
-    it("Should fails on invite more people into appointment that is not yours", async function () {
-      const appointment = await createAppointment();
-      const appointmentId = appointment.events![0].args!._id;
-      await expect(
-        agenda.connect(addr1).invite(appointmentId, [addr1.address])
-      ).to.be.revertedWith("Appointment is not yours");
-    });
-    it("Should fails on invite more people into past appointment", async function () {
-      const appointment = await createAppointment();
-      const appointmentId = appointment.events![0].args!._id;
-      const pastDate = new Date();
-      pastDate.setDate(new Date().getDate() + 1);
-      await ethers.provider.send("evm_setNextBlockTimestamp", [
-        Math.floor(pastDate.getTime() / 100),
-      ]);
-
-      await expect(
-        agenda.invite(appointmentId, [addr1.address])
-      ).to.be.revertedWith("Edit past appointments is not allowed");
-    });
-    it("Should fails on invite more people into invalid appointment", async function () {
-      await expect(agenda.invite(3, [addr1.address])).to.be.revertedWith(
-        "Appointment does not exist"
-      );
     });
   });
   describe("Unschedule", function () {
@@ -113,6 +74,33 @@ describe("Agenda", function () {
       ).to.be.revertedWith("Appointment is not yours");
     });
   });
+  describe("Invite", function () {
+    it("Should fails on invite more people into appointment that is not yours", async function () {
+      const appointment = await createAppointment();
+      const appointmentId = appointment.events![0].args!._id;
+      await expect(
+        agenda.connect(addr1).inviteMembers(appointmentId, [addr1.address])
+      ).to.be.revertedWith("Appointment is not yours");
+    });
+    it("Should fails on invite more people into past appointment", async function () {
+      const appointment = await createAppointment();
+      const appointmentId = appointment.events![0].args!._id;
+      const pastDate = new Date();
+      pastDate.setDate(new Date().getDate() + 1);
+      await ethers.provider.send("evm_setNextBlockTimestamp", [
+        Math.floor(pastDate.getTime() / 100),
+      ]);
+
+      await expect(
+        agenda.inviteMembers(appointmentId, [addr1.address])
+      ).to.be.revertedWith("Edit past appointments is not allowed");
+    });
+    it("Should fails on invite more people into invalid appointment", async function () {
+      await expect(agenda.inviteMembers(3, [addr1.address])).to.be.revertedWith(
+        "Appointment does not exist"
+      );
+    });
+  });
   describe("Uninvite", function () {
     it("Should uninvite people from existing appointment", async function () {
       const from = new Date();
@@ -122,13 +110,13 @@ describe("Agenda", function () {
       const appointment = await createAppointment(from, to);
       const appointmentId = appointment.events![0].args!._id;
 
-      await expect(agenda.invite(appointmentId, [addr1.address]))
+      await expect(agenda.inviteMembers(appointmentId, [addr1.address]))
         .to.emit(agenda, "MemberInvited")
         .withArgs(appointmentId.toString(), 1, addr1.address);
 
-      await expect(agenda.uninvite(appointmentId, [addr1.address]))
+      await expect(agenda.uninviteMembers(appointmentId, 1, [addr1.address]))
         .to.emit(agenda, "MemberUninvited")
-        .withArgs(appointmentId.toString(), addr1.address);
+        .withArgs(appointmentId.toString(), 1, addr1.address);
     });
     it("Should fails on uninvite people from past appointment", async function () {
       const from = new Date();
@@ -139,23 +127,22 @@ describe("Agenda", function () {
 
       const appointmentId = appointment.events![0].args!._id;
 
-      await expect(agenda.invite(appointmentId, [addr1.address]))
+      await expect(agenda.inviteMembers(appointmentId, [addr1.address]))
         .to.emit(agenda, "MemberInvited")
         .withArgs(appointmentId.toString(), 1, addr1.address);
-
       const pastDate = new Date();
       pastDate.setDate(new Date().getDate() + 10);
       await ethers.provider.send("evm_setNextBlockTimestamp", [
         Math.floor(pastDate.getTime() / 100),
       ]);
       await expect(
-        agenda.uninvite(appointmentId, [addr1.address])
+        agenda.uninviteMembers(appointmentId, 1, [addr1.address])
       ).to.be.revertedWith("Edit past appointments is not allowed");
     });
     it("Should fails on uninvite people from invalid appointment", async function () {
-      await expect(agenda.uninvite(3, [addr1.address])).to.be.revertedWith(
-        "Appointment does not exist"
-      );
+      await expect(
+        agenda.uninviteMembers(3, 1, [addr1.address])
+      ).to.be.revertedWith("Appointment does not exist");
     });
   });
   describe("Move appointment", function () {
@@ -202,15 +189,6 @@ describe("Agenda", function () {
       ).to.be.revertedWith("Date To must be bigger than From");
     });
   });
-  describe("Fetch appointments from address", function () {
-    it("Should returns all the appointment from address", async function () {
-      await createAppointment();
-      await createAppointment();
-      const appointments = await agenda.appointments(owner.address);
-      expect(appointments[0].owner).to.equal(owner.address);
-      expect(appointments.length).to.equal(2);
-    });
-  });
   describe("Approve", function () {
     it("Should approve an invitation for appointment", async function () {
       const _from = new Date();
@@ -219,33 +197,21 @@ describe("Agenda", function () {
       _from.setDate(_from.getDate() + 10);
       const appointment = await createAppointment(_from, _to);
       const appointmentId = appointment.events![0].args!._id;
-      const _inviteTx = await agenda.invite(appointmentId, [addr1.address]);
+      const _inviteTx = await agenda.inviteMembers(appointmentId, [
+        addr1.address,
+      ]);
       const inviteTx = await _inviteTx.wait();
       const inviteId = inviteTx.events![0].args!._invitationId;
 
-      await expect(agenda.connect(addr1).approve(inviteId, appointmentId))
+      await expect(agenda.connect(addr1).approveInvite(appointmentId, inviteId))
         .to.emit(agenda, "InvitationApproved")
-        .withArgs(appointmentId, addr1.address);
+        .withArgs(appointmentId, inviteId, addr1.address);
     });
-    it("Should fails on approve an invitation for invalid appointment", async function () {
-      await expect(agenda.connect(addr1).approve(0, 0)).to.be.revertedWith(
-        "Appointment does not exist'"
-      );
-    });
-    it("Should fails on approve an invitation when is not yours", async function () {
-      const _from = new Date();
-      const _to = new Date();
-      _to.setDate(_from.getDate() + 10);
-      _from.setDate(_from.getDate() + 10);
-      const appointment = await createAppointment(_from, _to);
-      const appointmentId = appointment.events![0].args!._id;
-      const _inviteTx = await agenda.invite(appointmentId, [addr1.address]);
-      const inviteTx = await _inviteTx.wait();
-      const inviteId = inviteTx.events![0].args!._invitationId;
 
-      await expect(agenda.approve(inviteId, appointmentId)).to.be.revertedWith(
-        "This is not your invitation"
-      );
+    it("Should fails on approve an invitation for invalid appointment", async function () {
+      await expect(
+        agenda.connect(addr1).approveInvite(0, 0)
+      ).to.be.revertedWith("Appointment does not exist'");
     });
   });
   describe("Deny", function () {
@@ -256,32 +222,42 @@ describe("Agenda", function () {
       _from.setDate(_from.getDate() + 10);
       const appointment = await createAppointment(_from, _to);
       const appointmentId = appointment.events![0].args!._id;
-      const _inviteTx = await agenda.invite(appointmentId, [addr1.address]);
+      const _inviteTx = await agenda.inviteMembers(appointmentId, [
+        addr1.address,
+      ]);
       const inviteTx = await _inviteTx.wait();
       const inviteId = inviteTx.events![0].args!._invitationId;
 
-      await expect(agenda.connect(addr1).deny(inviteId, appointmentId))
+      await expect(agenda.connect(addr1).denyInvite(appointmentId, inviteId))
         .to.emit(agenda, "InvitationDenied")
-        .withArgs(appointmentId, addr1.address);
+        .withArgs(appointmentId, inviteId, addr1.address);
     });
+
     it("Should fails on deny an invitation for invalid appointment", async function () {
-      await expect(agenda.connect(addr1).deny(0, 0)).to.be.revertedWith(
+      await expect(agenda.connect(addr1).denyInvite(0, 0)).to.be.revertedWith(
         "Appointment does not exist'"
       );
     });
-    it("Should fails on deny an invitation when is not yours", async function () {
-      const _from = new Date();
-      const _to = new Date();
-      _to.setDate(_from.getDate() + 10);
-      _from.setDate(_from.getDate() + 10);
-      const appointment = await createAppointment(_from, _to);
+  });
+  describe("Fetch", function () {
+    it("Should fetch the appointment by Id ", async function () {
+      const from = new Date();
+      const to = new Date();
+      const appointment = await createAppointment(from, to);
       const appointmentId = appointment.events![0].args!._id;
-      const _inviteTx = await agenda.invite(appointmentId, [addr1.address]);
-      const inviteTx = await _inviteTx.wait();
-      const inviteId = inviteTx.events![0].args!._invitationId;
-
-      await expect(agenda.deny(inviteId, appointmentId)).to.be.revertedWith(
-        "This is not your invitation"
+      const result = await agenda.appointment(appointmentId);
+      const expected = {
+        owner: owner.address,
+        from: Math.floor(from.getTime() / 100),
+        to: Math.floor(to.getTime() / 100),
+      };
+      expect(result.owner).to.equal(expected.owner);
+      expect(result.from).to.equal(expected.from);
+      expect(result.to).to.equal(expected.to);
+    });
+    it("Should fails on fetch the appointment by Id and no exist ", async function () {
+      await expect(agenda.appointment(1)).to.be.revertedWith(
+        "Appointment does not exist"
       );
     });
   });
