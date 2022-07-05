@@ -1,46 +1,73 @@
-# Advanced Sample Hardhat Project
+# Agenda 
 
-This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
+This project is a proof of concept of Calendar agenda  like "Calendy"  .
 
-The project comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts. It also comes with a variety of other tools, preconfigured to work with the project code.
 
-Try running some of the following tasks:
+This project has a "Agenda.sol" contract on you canc reate appointments and invite other address to this appointmens .
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-npx hardhat help
-REPORT_GAS=true npx hardhat test
-npx hardhat coverage
-npx hardhat run scripts/deploy.ts
-TS_NODE_FILES=true npx ts-node scripts/deploy.ts
-npx eslint '**/*.{js,ts}'
-npx eslint '**/*.{js,ts}' --fix
-npx prettier '**/*.{json,sol,md}' --check
-npx prettier '**/*.{json,sol,md}' --write
-npx solhint 'contracts/**/*.sol'
-npx solhint 'contracts/**/*.sol' --fix
-```
+
 
 # Etherscan verification
+ 
+ To run the test execute 
+ 
+ ```shell
+ npm run test
+ ```
 
-To try out Etherscan verification, you first need to deploy a contract to an Ethereum network that's supported by Etherscan, such as Ropsten.
 
-In this project, copy the .env.example file to a file named .env, and then edit it to fill in the details. Enter your Etherscan API key, your Ropsten node URL (eg from Alchemy), and the private key of the account which will send the deployment transaction. With a valid .env file in place, first deploy your contract:
+Actual test use cases coverage status 
 
 ```shell
-hardhat run --network ropsten scripts/deploy.ts
+ Agenda
+    Schedule
+      ✔ Should schedule some appointment (70ms)
+      ✔ Should fails on schedule from date is bigger than to (43ms)
+    Unschedule
+      ✔ Should unschedule some appointment (40ms)
+      ✔ Should fails on unschedule some invalid appointment
+      ✔ Should fails on unschedule some appointment that is not yours
+    Invite
+      ✔ Should fails on invite more people into appointment that is not yours
+      ✔ Should fails on invite more people into past appointment
+      ✔ Should fails on invite more people into invalid appointment
+    Uninvite
+      ✔ Should uninvite people from existing appointment (53ms)
+      ✔ Should fails on uninvite people from past appointment (41ms)
+      ✔ Should fails on uninvite people from invalid appointment
+    Move appointment
+      ✔ Should moves to other time
+      ✔ Should fails on moves from is bigger than to
+    Approve
+      ✔ Should approve an invitation for appointment (40ms)
+      ✔ Should fails on approve an invitation for invalid appointment
+    Deny
+      ✔ Should deny an invitation for appointment (45ms)
+      ✔ Should fails on deny an invitation for invalid appointment
+    Fetch
+      ✔ Should fetch the appointment by Id 
+      ✔ Should fails on fetch the appointment by Id and no exist 
+
+  Invite
+    Invite
+      ✔ Should invite more people into existing appointment
+    Approve
+      ✔ Should approve an invitation for appointment
+      ✔ Should fails on deny an invitation when is not yours
+    Deny
+      ✔ Should deny an invitation for appointment
+      ✔ Should fails on approve an invitation when is not yours
+
+
+  24 passing (2s)
 ```
 
-Then, copy the deployment address and paste it in to replace `DEPLOYED_CONTRACT_ADDRESS` in this command:
-
-```shell
-npx hardhat verify --network ropsten DEPLOYED_CONTRACT_ADDRESS "Hello, Hardhat!"
-```
-
-# Performance optimizations
-
-For faster runs of your tests and scripts, consider skipping ts-node's type checking by setting the environment variable `TS_NODE_TRANSPILE_ONLY` to `1` in hardhat's environment. For more details see [the documentation](https://hardhat.org/guides/typescript.html#performance-optimizations).
+-------------|----------|----------|----------|----------|----------------|
+File         |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+-------------|----------|----------|----------|----------|----------------|
+ contracts/  |      100 |       90 |      100 |      100 |                |
+  Agenda.sol |      100 |     87.5 |      100 |      100 |                |
+  Invite.sol |      100 |      100 |      100 |      100 |                |
+-------------|----------|----------|----------|----------|----------------|
+All files    |      100 |       90 |      100 |      100 |                |
+-------------|----------|----------|----------|----------|----------------|
