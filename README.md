@@ -7,7 +7,7 @@ This project has a "Agenda.sol" contract on you canc reate appointments and invi
 
 
 
-# Etherscan verification
+# Tests
  
  To run the test execute 
  
